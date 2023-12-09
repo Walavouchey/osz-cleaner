@@ -51,6 +51,9 @@ async function clean() {
         // to determine if the audio file is actually processed, but very poorly
         let audioFileCount = 0;
 
+        let background = null;
+        let backgroundName = null;
+
         // process files
         for (const file of osz) {
             const type = await findFileType(`./temp/osz/${oszString}/${file.entryName}`);
@@ -152,6 +155,13 @@ async function clean() {
                     }
 
                     if (eventsTrigger) {
+                        const split = line.split(",");
+                        if (split[0] == "0") {
+                            // background event
+                            backgroundName = split[2].replace(/^"|"$/g,'');
+                            const fileExt = backgroundName.split(".")[1];
+                            background = line.replace('/\r|\n/g', '').replace(backgroundName, `background.${fileExt}`);
+                        }
                         lines[i] = skip;
                     }
 
@@ -226,7 +236,11 @@ async function clean() {
 
                 for (const line of lines) {
                     if (line !== skip) {
-                        text += line;
+                        let addition = line;
+                        if (line.includes('//Background and Video events') && background) {
+                            addition = addition.replace('//Background and Video events', '//Background and Video events\r\n' + background)
+                        }
+                        text += addition;
                         text += '\r\n';
                     }
                 }
@@ -255,6 +269,17 @@ async function clean() {
                     audioFileCount++;
                     fs.renameSync(`./temp/osz/${oszString}/${file.entryName}`, `./temp/osz/${oszString}/audio.${type.ext}`);
                     newOsz.addLocalFile(`./temp/osz/${oszString}/audio.${type.ext}`);
+                }
+            }
+        }
+
+        for (const file of osz) {
+            const type = await findFileType(`./temp/osz/${oszString}/${file.entryName}`);
+            if (backgroundName && type && (type.ext == 'jpg' || type.ext == 'jpeg' || type.ext == 'png')) {
+                if (file.entryName == backgroundName) {
+                    logDefault(file.entryName);
+                    fs.renameSync(`./temp/osz/${oszString}/${file.entryName}`, `./temp/osz/${oszString}/background.${type.ext}`);
+                    newOsz.addLocalFile(`./temp/osz/${oszString}/background.${type.ext}`);
                 }
             }
         }
